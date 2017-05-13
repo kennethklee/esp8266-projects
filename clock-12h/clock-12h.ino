@@ -1,6 +1,6 @@
 // 12 h clock
 //#include <string>
-static const String DAY[7] = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+static const String DAY[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
                                                     
 // needed for Wifi Manager
 #include <DNSServer.h>
