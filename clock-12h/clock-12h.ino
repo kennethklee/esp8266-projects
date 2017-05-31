@@ -26,6 +26,12 @@ const int UTC_OFFSET = -4;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, UTC_OFFSET * 60 * 60);
 
+// needed for humidity sensor
+#include "DHT.h"
+#define DHTTYPE DHT11
+#define DHTPIN 1
+DHT dht(DHTPIN, DHTTYPE);
+
 // functional buttons
 #define FACTORY_RESET_PIN 3
 
@@ -56,6 +62,45 @@ void configModeCallback(WiFiManager *_) {
   drawProgress(50, "Started AP: NTPClock");
 }
 
+int sampleSize = 5;
+int samplePosition = 0;
+float sampleHumiditySum = 0;
+float sampleTempuratureSum = 0;
+float humiditySample[] = {0, 0, 0, 0, 0};
+float tempuratureSample[] = {0, 0, 0, 0, 0};
+
+void renderDisplay() {
+    int hours = timeClient.getHours();
+    String ampm;
+    if (hours >= 12) {
+      ampm = "pm";
+      hours -= 12;
+    } else {
+      ampm = "am";
+    }
+    int minutes = timeClient.getMinutes();
+    String minStr = minutes > 10 ? String(minutes) : ("0" + String(minutes));
+
+    display.clear();
+    display.setFont(ArialMT_Plain_24);
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.drawString(64, 10, DAY[timeClient.getDay()]);
+    display.drawString(64, 38, String(hours == 0 ? 12 : hours) + ":" + minStr + " " + ampm);
+
+    display.setFont(ArialMT_Plain_10);
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.drawString(0, 0, String(sampleTempuratureSum / sampleSize) + "*C");
+    
+    display.setTextAlignment(TEXT_ALIGN_RIGHT);
+    display.drawString(127, 0, String(sampleHumiditySum / sampleSize) + "%");
+
+    // Debug
+    // display.setTextAlignment(TEXT_ALIGN_LEFT);
+    // display.drawString(0, 53, String(tempuratureSample[0]) + " " + String(tempuratureSample[1]) + " " + String(tempuratureSample[2]) + " " + String(tempuratureSample[3]) + " " + String(tempuratureSample[4]));
+    
+    display.display();
+}
+
 void setup() {
 //  Serial.begin(74880);
   pinMode(FACTORY_RESET_PIN, INPUT);
@@ -75,48 +120,55 @@ void setup() {
   
   drawProgress(66, "Retrieving Network Time");
   timeClient.begin();
+
+  dht.begin();
   delay(1000);
 }
 
 String lastTime;
 bool drawDot = true;
+bool drawScreen = true;
 
 void loop() {
+  // Display time
   timeClient.update();
 
   String time = timeClient.getFormattedTime();
   if (lastTime != time) {
-    int hours = timeClient.getHours();
-    String ampm;
-    if (hours >= 12) {
-      ampm = "pm";
-      hours -= 12;
-    } else {
-      ampm = "am";
-    }
-    int minutes = timeClient.getMinutes();
-    String minStr = minutes > 10 ? String(minutes) : ("0" + String(minutes));
-
-    display.clear();
-    display.setFont(ArialMT_Plain_24);
-    display.setTextAlignment(TEXT_ALIGN_CENTER);
-    display.drawString(64, 6, DAY[timeClient.getDay()]);
-    display.drawString(64, 34, String(hours == 0 ? 12 : hours) + ":" + minStr + " " + ampm);
-    display.display();
+    drawScreen = true;
 
     lastTime = time;
   }
 
+  // Display humidity & tempurature
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  if (!isnan(h) && !isnan(t) && t > 1) {
+    // rolling average
+    sampleHumiditySum = sampleHumiditySum + h - humiditySample[samplePosition];
+    humiditySample[samplePosition] = h;
+
+    sampleTempuratureSum = sampleTempuratureSum + t - tempuratureSample[samplePosition];
+    tempuratureSample[samplePosition] = t;
+
+    samplePosition = (samplePosition + 1 == 5) ? 0 : samplePosition + 1;
+
+    drawScreen = true;
+  }
+
+  if (drawScreen) {
+    renderDisplay();
+  }
+
+  // Blinking dot
   if (drawDot) {
-//    display.setPixel(0, 0);
-//    display.setPixel(0, 63);
-//    display.setPixel(127, 0);
     display.setPixel(127, 63);
 
     display.display();
   }
   drawDot = !drawDot;
-  delay(1000);
+  delay(2000);
 
   if (digitalRead(FACTORY_RESET_PIN) == LOW) {
     executeReset("Factory reset triggered.");
