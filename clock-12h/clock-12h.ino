@@ -106,7 +106,7 @@ void setup() {
   pinMode(FACTORY_RESET_PIN, INPUT);
 
   display.init();
-//  display.flipScreenVertically();
+  display.flipScreenVertically();
   display.setContrast(127);
 
   WiFiManager wifiManager;
