@@ -12,9 +12,15 @@
 #include <BlynkSimpleEsp8266.h>
 
 #define DHTTYPE    DHT11
-#define DHTPIN 2
+#define DHTPIN 1
 
 DHT dht(DHTPIN, DHTTYPE);
+int sampleSize = 5;
+int samplePosition = 0;
+float sampleHumiditySum = 0;
+float sampleTempuratureSum = 0;
+float humiditySample[] = {0, 0, 0, 0, 0};
+float tempuratureSample[] = {0, 0, 0, 0, 0};
 
 BlynkTimer timer;
 char blynk_token[34] = "YOUR-BLYNK-TOKEN";
@@ -23,7 +29,7 @@ bool shouldSaveConfig = false;
 
 //callback notifying us of the need to save config
 void saveConfigCallback() {
-  Serial.println("Should save config");
+  //Serial.println("Should save config");
   shouldSaveConfig = true;
 }
 
@@ -31,27 +37,53 @@ void sendSensor() {
   float h = dht.readHumidity();
   float t = dht.readTemperature(); // Celcius
 
-  if (isnan(h) || isnan(t)) {
-    Serial.println(F("Failed to read from DHT sensor!"));
-    return;
+  if (!isnan(h) && !isnan(t) && t > 1) {
+    // rolling average
+    sampleHumiditySum = sampleHumiditySum + h - humiditySample[samplePosition];
+    humiditySample[samplePosition] = h;
+
+    sampleTempuratureSum = sampleTempuratureSum + t - tempuratureSample[samplePosition];
+    tempuratureSample[samplePosition] = t;
+
+    if (samplePosition + 1 == 5) {
+      samplePosition = 0;
+      Blynk.virtualWrite(V0, sampleTempuratureSum / sampleSize);
+      Blynk.virtualWrite(V1, sampleHumiditySum / sampleSize);
+    } else {
+      samplePosition++;
+    }
+    //Serial.print(F("Humidity: "));
+    //Serial.print(h);
+    //Serial.println(F("% RH"));
+    //Serial.print(F("Temperature: "));
+    //Serial.print(t);
+    //Serial.println(F("°C "));
   }
-  Blynk.virtualWrite(V0, t);
-  Blynk.virtualWrite(V1, h);
+
+
+}
+
+BLYNK_APP_CONNECTED() {
+  //Serial.println("Blynk Connected.");
+}
+
+BLYNK_APP_DISCONNECTED() {
+  //Serial.println("Blynk Disconnected.");
 }
 
 void setup() {
-  Serial.begin(9600);
+  //Serial.begin(9600);
 
   WiFiManager wifiManager;
 
   if (SPIFFS.begin()) {
-    Serial.println("mounted file system");
+    //Serial.println("mounted file system");
     if (SPIFFS.exists("/config.json")) {
       //file exists, reading and loading
-      Serial.println("reading config file");
+      //Serial.println("reading config file");
       File configFile = SPIFFS.open("/config.json", "r");
       if (configFile) {
-        Serial.println("opened config file");
+        //Serial.println("opened config file");
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -61,16 +93,16 @@ void setup() {
         JsonObject& json = jsonBuffer.parseObject(buf.get());
         json.printTo(Serial);
         if (json.success()) {
-          Serial.println("\nparsed json");
+          //Serial.println("\nparsed json");
           strcpy(blynk_token, json["blynk_token"]);
 
         } else {
-          Serial.println("failed to load json config");
+          //Serial.println("failed to load json config");
         }
       }
     }
   } else {
-    Serial.println("failed to mount FS");
+    //Serial.println("failed to mount FS");
     SPIFFS.format();
     wifiManager.resetSettings();
     delay(3000);
@@ -85,7 +117,7 @@ void setup() {
   wifiManager.setSaveConfigCallback(saveConfigCallback);
   
   if(!wifiManager.autoConnect("RoomSensor")) {
-    Serial.println("failed to connect and hit timeout");
+    //Serial.println("failed to connect and hit timeout");
     delay(3000);
     //reset and try again, or maybe put it to deep sleep
     ESP.reset();
@@ -93,20 +125,20 @@ void setup() {
   }
 
   //if you get here you have connected to the WiFi
-  Serial.println("connected :)");
+  //Serial.println("WiFi connected!");
 
   strcpy(blynk_token, custom_blynk_token.getValue());
 
   //save the custom parameters to FS
   if (shouldSaveConfig) {
-    Serial.println("saving config");
+    //Serial.println("saving config");
     DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.createObject();
     json["blynk_token"] = blynk_token;
 
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
-      Serial.println("failed to open config file for writing");
+      //Serial.println("failed to open config file for writing");
     }
 
     json.printTo(Serial);
@@ -116,7 +148,12 @@ void setup() {
   }
 
   dht.begin();
-  Blynk.config(blynk_token, "blynk.kennethklee.com");
+  //Serial.println("Connecting to Blynk, blynk.kennethklee.com");
+  Blynk.config(blynk_token, "blynk.kennethklee.com", 8080);
+  // Blynk.config(blynk_token, IPAddress(10, 1, 1, 11), 8080);
+  while (Blynk.connect() == false) {
+  }
+  //Serial.println("Connected to Blynk");
   timer.setInterval(1000L, sendSensor);
 }
 
