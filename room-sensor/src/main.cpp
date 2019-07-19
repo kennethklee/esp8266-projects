@@ -71,9 +71,7 @@ BLYNK_APP_DISCONNECTED() {
   //Serial.println("Blynk Disconnected.");
 }
 
-void setup() {
-  //Serial.begin(9600);
-
+void connectToWIFI() {
   WiFiManager wifiManager;
 
   if (SPIFFS.begin()) {
@@ -146,6 +144,12 @@ void setup() {
     configFile.close();
     //end save
   }
+}
+
+void setup() {
+  //Serial.begin(9600);
+
+  connectToWIFI()
 
   dht.begin();
   //Serial.println("Connecting to Blynk, blynk.kennethklee.com");
