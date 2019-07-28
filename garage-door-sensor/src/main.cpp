@@ -124,6 +124,7 @@ BlynkTimer timer;
 
 void syncState() {
   bridge1.virtualWrite(V1, pinValue);
+  Serial.println("Sync state to bridge.");
 }
 
 void setup() {
@@ -156,6 +157,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   Blynk.run();
+  timer.run();
 
   if (isPinChanged) {
     // Process the value
@@ -166,6 +168,7 @@ void loop() {
       Serial.println("Door Open");
       led1.on();
     }
+    bridge1.virtualWrite(V1, pinValue);
 
     // Clear the mark, as we have processed the value
     isPinChanged = false;
