@@ -15,9 +15,9 @@
 #define LIGHT_INTENSITY 100  // 1 - 255
 
 Adafruit_NeoPixel pixels(1, LIGHT_PIN, NEO_GRB + NEO_KHZ800);
-bool shouldSaveConfig = false;
 
 //callback notifying us of the need to save config
+bool shouldSaveConfig = false;
 void saveConfigCallback () {
   Serial.println("Should save config");
   shouldSaveConfig = true;
