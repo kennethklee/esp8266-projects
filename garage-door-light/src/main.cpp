@@ -137,6 +137,10 @@ void loop() {
 int pinValue = -1;
 WidgetLED led1(V0);
 
+BLYNK_CONNECTED() {
+  Blynk.syncAll();
+}
+
 BLYNK_WRITE(V1) {
   int newPinValue = param.asInt();
 
