@@ -202,8 +202,10 @@ void setup() {
   // Serial.println("Booting Stairs Light...");
   pinMode(TRIGGER_PIN, INPUT);
 
+  // Reset all
   pixels.begin();
   pixels.clear();
+  pixels.show();
 
   connectToWIFI();
   // Serial.println("Connected to WIFI!");
